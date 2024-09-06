@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 import os
+import random
 
 
 
@@ -12,40 +13,58 @@ genai.configure(api_key=os.getenv('API_KEY'))
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 
-def generate_surprise_recipe():
-    prompt = "Generate a south indian recipe typically for lunch/ dinner. Provide the recipe name on the first line, followed by a newline, then the full recipe details including ingredients, instructions, and cooking time."
-    response = model.generate_content(prompt)
-    return response.text
+surprise_recipe_names = [
+    'Tomato Pappu with Aloo Fry',
+    'Beetroot Thoran with Meen Kulambu',
+    'Coconut Chutney Spinach Dosa',
+    'Lemon Rice with Peanut Masala Vadai',
+    'Rava Idli with Coconut Chutney',
+    'Gongura Chicken Curry with Bagara Rice',
+    'Ulli Theeyal with Kerala Matta Rice',
+    'Mango Pachadi with Mor Kuzhambu',
+    'Masala Dosa with Aloo Masala',
+    'Gutti Vankaya Kura with Jonna Roti'
+]
 
-def split_recipe(recipe_text):
-    lines = recipe_text.split('\n', 1)
+def generate_recipe(recipe_name):
+    prompt = "Generate a south indian recipe for {recipe_name}. Provide the recipe name on the first line, followed by a newline, then the full recipe details including ingredients, instructions, and cooking time."
+    response = model.generate_content(prompt)
+    lines = response.text.split('\n', 1)
     recipe_name = lines[0].strip()
     full_recipe = lines[1].strip() if len(lines) > 1 else ""
-    return recipe_name, full_recipe
+    return full_recipe
 
 def generate_recipes_from_vegetables(selected_vegetables):
-    prompt = f"Generate 2 South Indian recipes using these vegetables, your recipe can just use one the vegetables selected or a combination of vegetables: {', '.join(selected_vegetables)}. Include ingredients, instructions, and cooking time for each recipe."
+    prompt = f"Generate 2 South Indian recipes using these vegetables or a combination of these vegetables: {', '.join(selected_vegetables)}. Include ingredients, instructions, and cooking time for each recipe."
     response = model.generate_content(prompt)
     return response.text
 
-# Streamlit app
 st.title("What should I cook today?")
 
-# Surprise Me button
+if 'recipe_dict' not in st.session_state:
+    st.session_state.recipe_dict = {}
+
+if 'show_recipe' not in st.session_state:
+    st.session_state.show_recipe = False
+
 if st.button("Surprise Me!"):
-    full_recipe = generate_surprise_recipe()
-    recipe_name, recipe_details = split_recipe(full_recipe)
-    st.session_state['recipe_name'] = recipe_name
-    st.session_state['recipe_details'] = recipe_details
+    selected_recipe = random.choice(surprise_recipe_names)
+    st.session_state.selected_recipe = selected_recipe
     st.subheader("Here's a surprise recipe for you:")
-    st.write(recipe_name)
+    st.write(selected_recipe)
+    st.session_state.show_recipe = False
 
-# Show me recipe button
-if 'recipe_name' in st.session_state and st.button("Show me recipe"):
-    st.subheader(st.session_state['recipe_name'])
-    st.write(st.session_state['recipe_details'])
+if 'selected_recipe' in st.session_state:
+    if st.button("Show/Hide Recipe"):
+        st.session_state.show_recipe = not st.session_state.show_recipe
+        if st.session_state.show_recipe and st.session_state.selected_recipe not in st.session_state.recipe_dict:
+            recipe_text = generate_recipe(st.session_state.selected_recipe)
+            st.session_state.recipe_dict[st.session_state.selected_recipe] = recipe_text
 
-# South Indian vegetables selection
+    if st.session_state.show_recipe:
+        st.subheader(st.session_state.selected_recipe)
+        st.write(st.session_state.recipe_dict[st.session_state.selected_recipe])
+
 st.subheader("Select 2-3 South Indian vegetables:")
 vegetables = ["Tomato", "Onion", "Okra", "Eggplant", "Cucumber", "Carrot", "Green Beans", "Spinach", "Potato", "Bell Pepper"]
 selected_vegetables = st.multiselect("Choose vegetables", vegetables)
